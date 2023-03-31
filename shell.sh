@@ -14,3 +14,4 @@ git fetch --all
 
 # do following in future:
 git fetch --all
+git merge --allow-unrelated-histories
