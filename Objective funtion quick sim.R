@@ -3,7 +3,7 @@
 #1. function calculating optimization of objective with differnt lambda
 # look at your overleaf..
 #2. calculate empirical performance (at each step, each 'c' and epsilon.)
-
+library(progress)
 source("Algorithm for two arm.R")
 
 #function calculating optimal solution
@@ -23,3 +23,7 @@ entropy_objective_optimal_2arm <- function(lambda,delta,x=NaN,min_sacle=0){
   return(list(best_x=xx/(1+xx),loss=loss))
 }
 entropy_objective_optimal_2arm(lambda=0.2,0.2,x=0.9)
+
+#sim
+para <- list(pa=0.6,pb=0.4,n=500,c=0.1,eps=0)
+res <- sim2(para,B=10000)

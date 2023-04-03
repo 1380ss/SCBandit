@@ -99,16 +99,51 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
 
 #a fcuntion from output to FPR/Power/Reward/ratio
 para <- list(pa=0.6,pb=0.4,n=785,c=0.1,eps=0)
-sim_2b <- function(para,B){
+sim2 <- function(para,B){
+#simulation for 2-arm settings  
   pa <- para$pa
   pb <- para$pb
   n <- para$n
   c <- para$c
   eps <- para$eps
+  
+  reward_df <- array(dim=c(B,n))
+  wald_df <- array(dim=c(B,n))
+  arm_count_df <- array(dim=c(B,n,4))
   if (is.null(para$burnin)){
     burnin <- 1
   }else{
     burnin <- para$burnin
   }
-  TS2b(pa,pb,n,c,eps,burnin=burnin)
+
+  # Initializes the progress bar
+  probar <- progress_bar$new(format = "(:spin) [:bar] :percent [Elapsed time: :elapsedfull || Estimated time remaining: :eta]",
+                         total = B,
+                         complete = "=",   # Completion bar character
+                         incomplete = "-", # Incomplete bar character
+                         current = ">",    # Current bar character
+                         clear = FALSE,    # If TRUE, clears the bar when finish
+                         width = 100)      # Width of the progress bar
+  for(i in 1:B) {
+    probar$tick()
+    res <- TS2b(pa,pb,n,c,eps,burnin=burnin)
+    reward_df[i,] <- res$reward
+    wald_df[i,] <- res$WaldScore
+    arm_count_df[i,,] <- res$count
+  }
+
+  reward <- apply(reward_df,2,mean,na.rm=T)
+  if (abs(pa-pb)>0){
+    if(pa>pb){
+      wald_test <- apply(wald_df>1.96,2,mean,na.rm=T)
+    } else{
+      wald_test <- apply(wald_df< -1.96,2,mean,na.rm=T)
+    }
+  }else{
+    wald <- apply(abs(wald_df)>1.96,2,mean,na.rm=T)
+  }
+  prop_x1 <- apply(apply(arm_count_df[,,c(1,2)],c(1,2),sum) , 2,mean)/c(1:n)
+  
+  return(list(reward=reward,power=wald_test,prop_x1 =prop_x1))
+  
 }
