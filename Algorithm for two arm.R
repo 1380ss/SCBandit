@@ -99,7 +99,7 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
 
 #a fcuntion from output to FPR/Power/Reward/ratio
 para <- list(pa=0.6,pb=0.4,n=785,c=0.1,eps=0)
-sim2 <- function(para,B){
+sim2 <- function(para,B,lambdas){
 #simulation for 2-arm settings  
   pa <- para$pa
   pb <- para$pb
@@ -110,6 +110,8 @@ sim2 <- function(para,B){
   reward_df <- array(dim=c(B,n))
   wald_df <- array(dim=c(B,n))
   arm_count_df <- array(dim=c(B,n,4))
+  objective_scores <- matrix(array(dim=c(n,length(lambdas))),ncol=length(lambdas))
+  colnames(objective_scores) <- lambdas
   if (is.null(para$burnin)){
     burnin <- 1
   }else{
@@ -140,10 +142,15 @@ sim2 <- function(para,B){
       wald_test <- apply(wald_df< -1.96,2,mean,na.rm=T)
     }
   }else{
-    wald <- apply(abs(wald_df)>1.96,2,mean,na.rm=T)
+    wald_test <- apply(abs(wald_df)>1.96,2,mean,na.rm=T)
   }
-  prop_x1 <- apply(apply(arm_count_df[,,c(1,2)],c(1,2),sum) , 2,mean)/c(1:n)
+  prop_x1 <- t(t(apply(arm_count_df[,,c(1,2)],c(1,2),sum))/c(1:n))
   
-  return(list(reward=reward,power=wald_test,prop_x1 =prop_x1))
+  for (i in 1:length(lambdas)){
+    ress <- entropy_objective_optimal_2arm(lambda=lambdas[i],delta=pa-pb,prop_x1)
+    objective_scores[,i] <- apply(ress$loss,2,mean,na.rm=T)
+  }
+  prop_x1 <- apply(prop_x1 , 2,mean)
+  return(list(reward=reward,power=wald_test,prop_x1 =prop_x1,objective_scores=objective_scores,))
   
 }
