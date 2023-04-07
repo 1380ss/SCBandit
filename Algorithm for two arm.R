@@ -1,5 +1,6 @@
 #library lists
-
+#library(openxlsx)
+library(writexl)
 #no I shouldn't have library loaded here...
 
 #TS algorithm for 2-arm, binary reward case. Can use PostDiff and epsilon-UR
@@ -9,7 +10,8 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
   arm_a_failures <- c(0)
   arm_b_successes <- c(0)
   arm_b_failures <- c(0)
-  
+  action_each_step <- c()
+  reward_each_step <- c()
   arm_a_s <- c(0)
   arm_a_f <- c(0)
   arm_b_s <- c(0)
@@ -18,18 +20,15 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
   for (i in 1:burnin){
     draw_a <- runif(1)
     draw_b <- runif(1)
-    if (draw_a>draw_b){
-      if(runif(1)<pa){
-        arm_a_s <- arm_a_s+1
-      } else {
-        arm_a_f <- arm_a_f+1
-      }
+    action_each_step[i] <- (draw_a>draw_b)
+    if (action_each_step[i]){
+      reward_each_step[i] <- (runif(1)<pa)
+      arm_a_s <- arm_a_s+reward_each_step[i]
+      arm_a_f <- arm_a_f+1-reward_each_step[i]
     } else{
-      if(runif(1)<pb){
-        arm_b_s <- arm_b_s+1
-      } else {
-        arm_b_f <- arm_b_f+1
-      }
+      reward_each_step[i] <- (runif(1)<pb)
+      arm_b_s <- arm_b_s+reward_each_step[i]
+      arm_b_f <- arm_b_f+1-reward_each_step[i]
     }
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
@@ -55,18 +54,15 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
         draw_b <- rbeta(1,arm_b_successes[i-1]+1,arm_b_failures[i-1]+1)
       }
     }
-    if (draw_a>draw_b){
-      if(runif(1)<pa){
-        arm_a_s <- arm_a_s+1
-      } else {
-        arm_a_f <- arm_a_f+1
-      }
+    action_each_step[i] <- (draw_a>draw_b)
+    if (action_each_step[i]){
+      reward_each_step[i] <- (runif(1)<pa)
+      arm_a_s <- arm_a_s+reward_each_step[i]
+      arm_a_f <- arm_a_f+1-reward_each_step[i]
     } else{
-      if(runif(1)<pb){
-        arm_b_s <- arm_b_s+1
-      } else {
-        arm_b_f <- arm_b_f+1
-      }
+      reward_each_step[i] <- (runif(1)<pb)
+      arm_b_s <- arm_b_s+reward_each_step[i]
+      arm_b_f <- arm_b_f+1-reward_each_step[i]
     }
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
@@ -87,9 +83,9 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
     pts <- mean(da>db)
     pc <- mean( abs(da-db)<c)
     pab <- pc/2 + (1-pc)*(pts)
-    return(list(WaldScore=WaldScore,reward=reward,pab=pab,count=cbind(arm_a_successes,arm_a_failures,arm_b_successes,arm_b_failures)))
+    return(list(WaldScore=WaldScore,reward=reward,pab=pab,action_each_step=action_each_step,reward_each_step=reward_each_step,count=cbind(arm_a_successes,arm_a_failures,arm_b_successes,arm_b_failures)))
   } else{
-    return(list(WaldScore=WaldScore,reward=reward,count=cbind(arm_a_successes,arm_a_failures,arm_b_successes,arm_b_failures)))
+    return(list(WaldScore=WaldScore,reward=reward,action_each_step=action_each_step,reward_each_step=reward_each_step,count=cbind(arm_a_successes,arm_a_failures,arm_b_successes,arm_b_failures)))
   }
   #return(c(WaldScore,arm_a_successes,na,arm_b_successes,nb,count_PC))
   #return(list(WaldScore=WaldScore,na=na,nb=nb,sa=arm_a_successes,sb=arm_b_successes))
@@ -98,9 +94,13 @@ TS2b <- function(pa,pb,n,c,eps,burnin=1,ap_output=F){
 }
 
 #a fcuntion from output to FPR/Power/Reward/ratio
-para <- list(pa=0.6,pb=0.4,n=785,c=0.1,eps=0)
+
+#paste back ..... 
+#########################
+
 sim2 <- function(para,B,lambdas){
 #simulation for 2-arm settings  
+#the output action/reward history is time_step(row)*simulation trials(column)
   pa <- para$pa
   pb <- para$pb
   n <- para$n
@@ -110,6 +110,10 @@ sim2 <- function(para,B,lambdas){
   reward_df <- array(dim=c(B,n))
   wald_df <- array(dim=c(B,n))
   arm_count_df <- array(dim=c(B,n,4))
+  
+  #action and reward history is full info. I save those to Google drive. 
+  action_history <- array(dim=c(B,n)) 
+  reward_history <- array(dim=c(B,n))
   objective_scores <- matrix(array(dim=c(n,length(lambdas))),ncol=length(lambdas))
   colnames(objective_scores) <- lambdas
   if (is.null(para$burnin)){
@@ -132,8 +136,9 @@ sim2 <- function(para,B,lambdas){
     reward_df[i,] <- res$reward
     wald_df[i,] <- res$WaldScore
     arm_count_df[i,,] <- res$count
+    action_history[i,] <- res$action_each_step
+    reward_history[i,] <- res$reward_each_step
   }
-
   reward <- apply(reward_df,2,mean,na.rm=T)
   if (abs(pa-pb)>0){
     if(pa>pb){
@@ -151,6 +156,9 @@ sim2 <- function(para,B,lambdas){
     objective_scores[,i] <- apply(ress$loss,2,mean,na.rm=T)
   }
   prop_x1 <- apply(prop_x1 , 2,mean)
-  return(list(reward=reward,power=wald_test,prop_x1 =prop_x1,objective_scores=objective_scores,))
+  return(list(reward=reward,power=wald_test,prop_x1 =prop_x1,
+              objective_scores=objective_scores,
+              action_history=as.data.frame(t(action_history)),
+              reward_history=as.data.frame(t(reward_history))))
   
 }
