@@ -150,15 +150,68 @@ sim2 <- function(para,B,lambdas){
     wald_test <- apply(abs(wald_df)>1.96,2,mean,na.rm=T)
   }
   prop_x1 <- t(t(apply(arm_count_df[,,c(1,2)],c(1,2),sum))/c(1:n))
-  
+  success_x1 <- arm_count_df[,,1]
+  success_x2 <- arm_count_df[,,3]
   for (i in 1:length(lambdas)){
     ress <- entropy_objective_optimal_2arm(lambda=lambdas[i],delta=pa-pb,prop_x1)
     objective_scores[,i] <- apply(ress$loss,2,mean,na.rm=T)
   }
-  prop_x1 <- apply(prop_x1 , 2,mean)
+  #prop_x1 <- apply(prop_x1 , 2,mean)
   return(list(reward=reward,power=wald_test,prop_x1 =prop_x1,
+              s1=success_x1,s2=success_x2,
               objective_scores=objective_scores,
               action_history=as.data.frame(t(action_history)),
               reward_history=as.data.frame(t(reward_history))))
   
 }
+
+
+
+### for background
+#functions needed
+#function calculating optimal solution
+entropy_objective_optimal_2arm <- function(lambda,delta,x=NULL,min_sacle=0){
+  #delta = mu1-mu2, x is proportion to arm 1
+  #objective = delta x + lambda [xlogx + (1-x) log(1-x)]
+  xx <- exp(delta/lambda)
+  if(is.null(x)){
+    x <- xx/(1+xx)
+  }
+  scale_factor <- (lambda*log(1+xx))
+  if(is.na(min_sacle)){
+    min_sacle <- delta*0.5+lambda*log(2)
+  }
+  
+  loss <- (x*delta-lambda*( x*log(x)+(1-x)*log(1-x))-min_sacle)/(scale_factor-min_sacle)
+  return(list(best_x=xx/(1+xx),loss=loss))
+}
+# entropy_objective_optimal_2arm(lambda=0.2,delta=0.2,x=0.9)
+create_df_setting <- function(parameter_list,effect_list){
+  algorithm_list <- names(parameter_list)
+  df1 <- data.frame()
+  for(i in algorithm_list){
+    df1 <- rbind(df1,expand.grid(algorithm=as.character(i),parameter=parameter_list[[i]]))
+  }
+  df1$algorithm <- as.character(df1$algorithm )
+  df2 <- data.frame(effect=effect_list)#at this point you only have effect size. 
+  
+  df_settings <- merge(df1,df2)
+  
+  df_settings$algo_name <- df_settings$algorithm #name with parameter, so can be used for plots
+  df_settings$algo_name[!is.na(df_settings$parameter)] <- paste0(df_settings$algo_name[!is.na(df_settings$parameter)],' (', df_settings$parameter[!is.na(df_settings$parameter)],')')
+  
+  #process epsilon and c
+  #can write a better work flow later
+  df_settings$epsilon <- 0
+  df_settings$c <- 0
+  df_settings$epsilon[df_settings$algorithm=='UR'] <- 1
+  df_settings$epsilon[df_settings$algorithm=='TT-TS'] <- df_settings$parameter[df_settings$algorithm=='TT-TS']
+  
+  df_settings$c[df_settings$algorithm=='UR'] <- 1
+  df_settings$c[df_settings$algorithm=='TS PostDiff'] <- df_settings$parameter[df_settings$algorithm=='TS PostDiff']
+  
+  return(df_settings) 
+}
+
+#work flow
+
