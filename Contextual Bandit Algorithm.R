@@ -224,8 +224,8 @@ process_result <- function(res,B=1000,inds,names){
   y <- res$y
   betas <- array(dim=c(B,length(res$para_post$mu)))
   his <- as_tibble(res$his)
-  re <- summarize(group_by(his,a1),reward=mean(reward))$reward
-  mse <- summarize(group_by(his,a1),mse=sd(reward)/sqrt(n()))$mse
+  re <- summarize(group_by(his,c1),reward=mean(reward))$reward
+  mse <- summarize(group_by(his,c1),mse=sd(reward)/sqrt(n()))$mse
   for (i in 1:B){
     sigma_n <- rinvgamma(1,res$para_post$a,res$para_post$b) #sigma here is actually sigma square
     betas[i,] <- rmvnorm(1,mean=res$para_post$mu,sigma = sigma_n*inv(res$para_post$L))
