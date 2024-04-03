@@ -33,3 +33,19 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
     }
   }
 }
+
+
+df2table <- function(xr,xc,x){
+  xru <- unique(xr)
+  xcu <- unique(xc)
+  df <- matrix(nrow=length(xru),ncol=length(xcu))
+  for(i in 1:length(xru)){
+    for(j in 1:length(xcu)){
+      df[i,j] <- x[ (xr==unique(xr)[i])&(xc==unique(xc)[j]) ]
+    }
+  }
+  colnames(df) <- xcu
+  rownames(df) <- xru
+  return(df)
+}
+#df2table(xr,xc,x)
